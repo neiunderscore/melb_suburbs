@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Melbourne Suburbs</title>
+    <script type="text/javascript" language="javascript" src="list.js"></script> 
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.7.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.7.0/mapbox-gl.js"></script>
+    <style>
+        html{
+            height: 100%;
+        }
+        body{
+            font-size: 30px;
+            font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+            text-align: center;
+            height: 100%;
+            padding: 0px;
+            margin: 0px;
+            background-color: #111;
+            color: #EEE;
+            overflow: hidden;
+        }
+        input{
+            font: inherit;
+            color: #FFF;
+            background-color: #222;
+        }
+        input:focus, button:focus{
+            outline: none;
+        }
+        #map { 
+            float:right;
+            width: 70%;
+            height: 100%;
+        }
+        #text {
+            float: left;
+            width: 30%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    
+    
+    <div id="text">
+        <h1>Melbourne Suburbs</h1>
+        <div id="stats"></div>
+        <form action="javascript:void(0);">
+        <div>
+          <input id="field" type="text">
+          <input type="submit">
+        </div>
+        <br>
+        <div id="correct"></div>
+      </form>
+    </div>
+    <div id="map"></div>
+</body>
+<script>
+    const STARTCOORDS = [144.9999179,-37.9921019];
+    const STARTZOOM = 9;
+    let corrects = [];
+    $("form").submit(e=>{
+        let guess = $("#field").val();
+        $("#field").val("");
+        suburb = list.find(s=>s.NAME.toLowerCase()==guess.trim().toLowerCase());
+        if(suburb){
+            showSuburb(suburb);
+            if(!corrects.find(c=>c==suburb)){
+                setCorrect(suburb);
+            }
+        }
+        if(guess==""){
+            if(map.getZoom()==STARTZOOM){
+                showSuburb(corrects[0]);
+            }
+            else{
+                map.flyTo({
+                    center: STARTCOORDS,
+                    zoom: STARTZOOM,
+                    bearing: 0,
+                    pitch: 0,
+                    duration: 1000
+                });
+            }
+            
+        }
+        
+    });
+
+    class Feature {
+        constructor(suburb){
+            this.type = 'Feature',
+            this.geometry = {
+                'type': 'Point',
+                'coordinates': [getLong(suburb.COORDINATES), getLat(suburb.COORDINATES)]
+            },
+            this.properties = {
+                'title': suburb.NAME
+            }
+        }
+    }
+
+    let showSuburb = suburb => {
+        map.flyTo({
+            center: [getLong(suburb.COORDINATES), getLat(suburb.COORDINATES)],
+            zoom: 12,
+            bearing: 0,
+            pitch: 0,
+            curve: 1.5,
+            duration: 2000
+        });
+        // setTimeout(()=>{
+        //     map.easeTo({
+        //         zoom: 12,
+        //         bearing: 0,
+        //         pitch: 0,
+        //         duration: 500
+        //     });
+        // },1000);
+    }
+
+    let setCorrect = suburb => {
+        corrects.unshift(suburb);
+        let contents = "";
+        corrects.forEach(correct=>{
+            contents += correct.NAME+" VIC "+correct.POSTCODE+"<br>";
+        })
+        $("#correct").html(contents);
+        $("#stats").html(
+            corrects.length+"/"+list.length+" "
+            +(100*corrects.length/list.length).toFixed(1)+"% "
+            +"<br><br>");
+        map.addSource(suburb.NAME, {'type': 'geojson','data': {'type': 'FeatureCollection','features': [new Feature(suburb)]}});
+        setTimeout(()=>{
+            map.addLayer({
+                'id': suburb.NAME,
+                'type': 'symbol',
+                'source': suburb.NAME,
+                'layout': {
+                    'icon-image': 'custom-marker-1',
+                    'icon-allow-overlap': true,
+                    'text-optional': true,
+                    'text-field': ['get', 'title'],
+                    'text-font': [
+                        'Open Sans Semibold',
+                        'Arial Unicode MS Bold'
+                    ],
+                    'text-size': 12,
+                    'text-offset': [0, 1.25],
+                    'text-anchor': 'top',
+                },
+                'paint': {
+                    'text-color': "#ffffff"
+                }
+            });
+        },1000);
+        
+    }
+
+    let getLong = coords => {
+        let terms = coords.split(" ");
+        return (terms[3]=="E" ? 1 : -1)*terms[2];
+    }
+    let getLat = coords => {
+        let terms = coords.split(" ");
+        return (terms[1]=="N" ? 1 : -1)*terms[0];
+    }
+
+    mapboxgl.accessToken = 'pk.eyJ1IjoibmF0aGFudGFoIiwiYSI6ImNqYjQ1Z3oydjJ0MGYycW85a2tleHI4cDIifQ.VNk27dCATC9nBsX_hfaKUg';
+    const map = new mapboxgl.Map({
+        container: 'map', // container ID
+        style: 'mapbox://styles/nathantah/ckyeygh4g6d5t14p9d3ddw8ud', // style URL
+        center: STARTCOORDS, // starting position [lng, lat]
+        zoom: STARTZOOM // starting zoom
+    });
+
+    map.on('load', () => {
+        map.loadImage('grey_marker.png',(error, image) => {
+            if (error) throw error;
+            map.addImage('custom-marker-0', image,{
+                pixelRatio: 12
+            });
+        });
+        map.loadImage('red_marker.png',(error, image) => {
+            if (error) throw error;
+            map.addImage('custom-marker-1', image,{
+                pixelRatio: 6
+            });
+        });
+        let feature_array = [];
+        list.forEach(suburb=>{
+            feature_array.push(new Feature(suburb));
+        });
+        map.addSource("all_suburbs", {'type': 'geojson','data': {'type': 'FeatureCollection','features': feature_array}});
+        let all = map.addLayer({
+            'id': "all_suburbs",
+            'type': 'symbol',
+            'source': "all_suburbs",
+            'layout': {
+                'visibility': 'none',
+                'icon-image': 'custom-marker-0',
+                'icon-allow-overlap': true,
+                'text-allow-overlap': true,
+                // 'text-field': ['get', 'title'],
+                'text-font': [
+                    'Open Sans Semibold',
+                    'Arial Unicode MS Bold'
+                ],
+                'text-size': 12,
+                'text-offset': [0, 1.25],
+                'text-anchor': 'top',
+            },
+            'paint': {
+                'text-color': "#ffffff"
+            }
+        });
+    });
+
+</script>
+</html>
