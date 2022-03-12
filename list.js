@@ -1,4 +1,4 @@
-var list = [
+var suburb_data = [
     {
       "QUERY": "Aintree, Victoria",
       "NAME": "Aintree",
@@ -661,7 +661,7 @@ var list = [
       "POSTCODE": 3978,
       "POPULATION": 8157,
       "AREA": null,
-      "COORDINATES": "38 07 S 145 20 E S"
+      "COORDINATES": "38.117 S 145.333 E"
     },
     {
       "QUERY": "Croydon Hills, Victoria",
@@ -3061,7 +3061,7 @@ var list = [
       "POSTCODE": 3011,
       "POPULATION": 5123,
       "AREA": 1,
-      "COORDINATES": "37.81 144.894"
+      "COORDINATES": "37.810 S 144.894 E"
     },
     {
       "QUERY": "Hawthorn, Victoria",
