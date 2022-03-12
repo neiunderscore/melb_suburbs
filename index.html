@@ -135,7 +135,7 @@
         zoom: STARTZOOM
     });
     map.on('load',()=>{
-        suburb_data.forEach(item=>{
+        list.forEach(item=>{
             suburbs.push(new Suburb(item));
         });
         $("form").submit(e=>{
