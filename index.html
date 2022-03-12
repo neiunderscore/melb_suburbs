@@ -21,13 +21,14 @@
             padding: 0px;
             margin: 0px;
             background-color: #111;
-            color: #EEE;
+            
             overflow: hidden;
         }
         input{
             font: inherit;
             color: #FFF;
             background-color: #222;
+            text-align: center;
         }
         input:focus, button:focus{
             outline: none;
@@ -41,6 +42,7 @@
             float: left;
             width: 30%;
             height: 100%;
+            color: #EEE;
         }
     </style>
 </head>
@@ -49,13 +51,11 @@
     
     <div id="text">
         <h1>Melbourne Suburbs</h1>
-        <div id="stats"></div>
         <form action="javascript:void(0);">
         <div>
           <input id="field" type="text">
-          <input type="submit">
         </div>
-        <br>
+        <div id="stats"></div>
         <div id="correct"></div>
       </form>
     </div>
@@ -64,163 +64,99 @@
 <script>
     const STARTCOORDS = [144.9999179,-37.9921019];
     const STARTZOOM = 9;
-    let corrects = [];
-    $("form").submit(e=>{
-        let guess = $("#field").val();
-        $("#field").val("");
-        suburb = list.find(s=>s.NAME.toLowerCase()==guess.trim().toLowerCase());
-        if(suburb){
-            showSuburb(suburb);
-            if(!corrects.find(c=>c==suburb)){
-                setCorrect(suburb);
-            }
+    let suburbs = [];
+    let currentView;
+    let lastFound;
+    class ClickableMarker extends mapboxgl.Marker {
+      onClick(handleClick) {
+        this._handleClick = handleClick;
+        return this;
+      }
+      _onMapClick(e) {
+        const targetElement = e.originalEvent.target;
+        const element = this._element;
+        if (this._handleClick && (targetElement === element || element.contains((targetElement)))) {
+          this._handleClick();
         }
-        if(guess==""){
-            if(map.getZoom()==STARTZOOM){
-                showSuburb(corrects[0]);
-            }
-            else{
-                map.flyTo({
-                    center: STARTCOORDS,
-                    zoom: STARTZOOM,
-                    bearing: 0,
-                    pitch: 0,
-                    duration: 1000
+      }
+    }
+    class Suburb {
+        constructor(suburb){
+            this.name = suburb.NAME;
+            this.postcode = suburb.POSTCODE;
+            this.pop = suburb.POPULATION;
+            this.area = suburb.AREA;
+            this.coords = convertCoords(suburb.COORDINATES.split(" "));
+            this.found = false;
+            this.foundAt = "";
+            this.marker = new ClickableMarker({'color':'grey','scale':'0.6'}).setLngLat(this.coords).addTo(map);
+        }
+        setFound(){
+            this.found = true;
+            this.foundAt = new Date();
+            setTimeout(()=>{
+                this.marker.remove();
+                this.marker = new ClickableMarker({'color':'red','scale':'0.6'})
+                .setLngLat(this.coords)
+                .onClick(()=>{
+                    this.view();
+                })
+                .addTo(map);
+                lastFound = this;
+                let contents = "";
+                let founds = suburbs.filter(s=>s.found).sort((a,b)=>{return b.foundAt-a.foundAt});
+                founds.forEach(f=>{
+                    contents += f.name+" VIC "+f.postcode+"<br>";
                 });
-            }
+                $("#correct").html(contents);
+                $("#stats").html("<br>"
+                    +founds.length+"/"+suburbs.length+" "
+                    +(100*founds.length/suburbs.length).toFixed(1)+"% "
+                    +"<br><br>");
+            },999);            
+        }
+        view(){
+            map.flyTo({center:this.coords, zoom:12, bearing:0, pitch:0 ,curve:2 ,duration:2000});
+            setTimeout(()=>{
+                if(currentView) currentView.remove();
+                currentView = new ClickableMarker({'color':'red','scale':'1'}).setLngLat(this.coords).addTo(map);
+            },1000);
             
         }
-        
-    });
-
-    class Feature {
-        constructor(suburb){
-            this.type = 'Feature',
-            this.geometry = {
-                'type': 'Point',
-                'coordinates': [getLong(suburb.COORDINATES), getLat(suburb.COORDINATES)]
-            },
-            this.properties = {
-                'title': suburb.NAME
-            }
-        }
     }
-
-    let showSuburb = suburb => {
-        map.flyTo({
-            center: [getLong(suburb.COORDINATES), getLat(suburb.COORDINATES)],
-            zoom: 12,
-            bearing: 0,
-            pitch: 0,
-            curve: 1.5,
-            duration: 2000
-        });
-        // setTimeout(()=>{
-        //     map.easeTo({
-        //         zoom: 12,
-        //         bearing: 0,
-        //         pitch: 0,
-        //         duration: 500
-        //     });
-        // },1000);
+    function convertCoords(w){
+        return [(w[3]=="E"?1:-1)*w[2],(w[1]=="N"?1:-1)*w[0]]
     }
-
-    let setCorrect = suburb => {
-        corrects.unshift(suburb);
-        let contents = "";
-        corrects.forEach(correct=>{
-            contents += correct.NAME+" VIC "+correct.POSTCODE+"<br>";
-        })
-        $("#correct").html(contents);
-        $("#stats").html(
-            corrects.length+"/"+list.length+" "
-            +(100*corrects.length/list.length).toFixed(1)+"% "
-            +"<br><br>");
-        map.addSource(suburb.NAME, {'type': 'geojson','data': {'type': 'FeatureCollection','features': [new Feature(suburb)]}});
-        setTimeout(()=>{
-            map.addLayer({
-                'id': suburb.NAME,
-                'type': 'symbol',
-                'source': suburb.NAME,
-                'layout': {
-                    'icon-image': 'custom-marker-1',
-                    'icon-allow-overlap': true,
-                    'text-optional': true,
-                    'text-field': ['get', 'title'],
-                    'text-font': [
-                        'Open Sans Semibold',
-                        'Arial Unicode MS Bold'
-                    ],
-                    'text-size': 12,
-                    'text-offset': [0, 1.25],
-                    'text-anchor': 'top',
-                },
-                'paint': {
-                    'text-color': "#ffffff"
-                }
-            });
-        },1000);
-        
-    }
-
-    let getLong = coords => {
-        let terms = coords.split(" ");
-        return (terms[3]=="E" ? 1 : -1)*terms[2];
-    }
-    let getLat = coords => {
-        let terms = coords.split(" ");
-        return (terms[1]=="N" ? 1 : -1)*terms[0];
-    }
-
     mapboxgl.accessToken = 'pk.eyJ1IjoibmF0aGFudGFoIiwiYSI6ImNqYjQ1Z3oydjJ0MGYycW85a2tleHI4cDIifQ.VNk27dCATC9nBsX_hfaKUg';
     const map = new mapboxgl.Map({
-        container: 'map', // container ID
-        style: 'mapbox://styles/nathantah/ckyeygh4g6d5t14p9d3ddw8ud', // style URL
-        center: STARTCOORDS, // starting position [lng, lat]
-        zoom: STARTZOOM // starting zoom
+        container: 'map',
+        style: 'mapbox://styles/nathantah/ckyeygh4g6d5t14p9d3ddw8ud',
+        center: STARTCOORDS,
+        zoom: STARTZOOM
     });
-
-    map.on('load', () => {
-        map.loadImage('grey_marker.png',(error, image) => {
-            if (error) throw error;
-            map.addImage('custom-marker-0', image,{
-                pixelRatio: 12
-            });
+    map.on('load',()=>{
+        suburb_data.forEach(item=>{
+            suburbs.push(new Suburb(item));
         });
-        map.loadImage('red_marker.png',(error, image) => {
-            if (error) throw error;
-            map.addImage('custom-marker-1', image,{
-                pixelRatio: 6
-            });
-        });
-        let feature_array = [];
-        list.forEach(suburb=>{
-            feature_array.push(new Feature(suburb));
-        });
-        map.addSource("all_suburbs", {'type': 'geojson','data': {'type': 'FeatureCollection','features': feature_array}});
-        let all = map.addLayer({
-            'id': "all_suburbs",
-            'type': 'symbol',
-            'source': "all_suburbs",
-            'layout': {
-                'visibility': 'none',
-                'icon-image': 'custom-marker-0',
-                'icon-allow-overlap': true,
-                'text-allow-overlap': true,
-                // 'text-field': ['get', 'title'],
-                'text-font': [
-                    'Open Sans Semibold',
-                    'Arial Unicode MS Bold'
-                ],
-                'text-size': 12,
-                'text-offset': [0, 1.25],
-                'text-anchor': 'top',
-            },
-            'paint': {
-                'text-color': "#ffffff"
+        $("form").submit(e=>{
+            let guess = $("#field").val();
+            let suburb = suburbs.find(s=>s.name.toLowerCase()==guess.trim().toLowerCase());
+            $("#field").val("");
+            if(suburb){
+                suburb.view();
+                if(!suburb.found){
+                    suburb.setFound();
+                }
+            }
+            if(guess==""){
+                if(map.getZoom()==STARTZOOM){
+                    lastFound.view();
+                }
+                else{
+                    map.flyTo({center:STARTCOORDS, zoom:STARTZOOM, bearing:0, pitch:0, duration:1000});
+                }
             }
         });
-    });
-
+    })
 </script>
 </html>
