@@ -14,14 +14,12 @@
             height: 100%;
         }
         body{
-            font-size: 30px;
             font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
             text-align: center;
             height: 100%;
             padding: 0px;
             margin: 0px;
-            background-color: #111;
-            
+            background-color: #000;
             overflow: hidden;
         }
         input{
@@ -29,41 +27,49 @@
             color: #FFF;
             background-color: #222;
             text-align: center;
+            font-size: 30px;
+            border: none;
         }
         input:focus, button:focus{
             outline: none;
         }
-        #map { 
-            float:right;
-            width: 70%;
-            height: 100%;
+        #map {
+            width: 100%;
+            height: 300px;
         }
         #text {
-            float: left;
-            width: 30%;
             height: 100%;
             color: #EEE;
+        }
+        #narrow{
+            margin: auto;
+            width: 414px;
+            height: 100%;
+            background-color:#111;
         }
     </style>
 </head>
 <body>
-    
-    
-    <div id="text">
-        <h1>Melbourne Suburbs</h1>
-        <form action="javascript:void(0);">
-        <div>
-          <input id="field" type="text">
+    <div id="narrow">
+        <div id="map"></div>
+        <div id="text">
+            <h1>Melbourne Suburbs</h1>
+            <form action="javascript:void(0);">
+                <div>
+                <input id="field" type="text">
+                </div>
+                <div id="stats"></div>
+                <div id="correct"></div>
+            </form>
         </div>
-        <div id="stats"></div>
-        <div id="correct"></div>
-      </form>
     </div>
-    <div id="map"></div>
+    
+    
 </body>
 <script>
     const STARTCOORDS = [144.9999179,-37.9921019];
-    const STARTZOOM = 9;
+    const STARTZOOM = 7.3;
+    const FOCUSZOOM = 11;
     let suburbs = [];
     let currentView;
     let lastFound;
@@ -116,7 +122,7 @@
             },999);            
         }
         view(){
-            map.flyTo({center:this.coords, zoom:12, bearing:0, pitch:0 ,curve:2 ,duration:2000});
+            map.flyTo({center:this.coords, zoom:FOCUSZOOM, bearing:0, pitch:0 ,curve:2 ,duration:2000});
             setTimeout(()=>{
                 if(currentView) currentView.remove();
                 currentView = new ClickableMarker({'color':'red','scale':'1'}).setLngLat(this.coords).addTo(map);
